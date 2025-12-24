@@ -1,4 +1,4 @@
-use crate::AppState;
+use crate::model::AppState;
 use crate::handler;
 use axum::{
     Router,

@@ -1,20 +1,13 @@
-# 访问路径数组
+# 挂载的文件路径（此处路径权限的配置高于用户权限配置）
 [[paths]]
-path = "/"
+path = "/*" # 允许访问的路径，例子 /* 表示/下面的所有路径或文件，或者使用集合 /?usr|bin? 将允许访问这些文件或者下面的路径，或者指定具体的文件或者文件夹 /usr/local
 name = "root"
+permission = 0b111 # rwv- read, write, view
 
 # 文件管理器用户权限配置
 [[users]]
 username = "admin"
 password = "password"
-permissions = ["*"]
-
-[[users]]
-username = "user1"
-password = "user1pass"
-permissions = ["file1.txt", "folder1/*"]
-
-[[users]]
-username = "user2"
-password = "user2pass"
-permissions = ["folder2/*", "shared.pdf"]
+[[users.permissions]]
+path_name = "/*" 
+permission = 0b111

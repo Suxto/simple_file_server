@@ -19,3 +19,7 @@ tokio-util = "0.7"
 mime = "0.3"
 glob = "0.3"
 tower-http = { version = "0.5", features = ["fs"] }
+# 日志依赖
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
