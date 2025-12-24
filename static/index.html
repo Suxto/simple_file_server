@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Simple File Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2em;
+        }
+
+        .file-list {
+            margin-top: 2em;
+        }
+
+        .file-item {
+            margin: 0.5em 0;
+        }
+
+        .login {
+            margin-bottom: 2em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login">
+        <h2>登录</h2>
+        <input type="text" id="username" placeholder="用户名">
+        <input type="password" id="password" placeholder="密码">
+        <button onclick="login()">登录</button>
+        <div id="login-status"></div>
+    </div>
+    <div id="file-manager" style="display:none;">
+        <h2>文件管理</h2>
+        <form id="upload-form">
+            <input type="file" id="file-input" name="file">
+            <button type="submit">上传</button>
+        </form>
+        <div class="file-list" id="file-list"></div>
+    </div>
+    <script>
+        let token = '';
+        function login() {
+            fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                })
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    token = data.token;
+                    document.getElementById('login-status').innerText = '登录成功';
+                    document.getElementById('file-manager').style.display = '';
+                    loadFiles();
+                } else {
+                    document.getElementById('login-status').innerText = '登录失败';
+                }
+            });
+        }
+        function loadFiles() {
+            fetch('/api/files', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            }).then(r => r.json()).then(data => {
+                let html = '';
+                data.files.forEach(f => {
+                    html += `<div class="file-item">${f.is_dir ? '📁' : '📄'} ${f.name} ${!f.is_dir ? `<a href="/api/download?name=${encodeURIComponent(f.name)}&token=${token}">下载</a>` : ''}</div>`;
+                });
+                document.getElementById('file-list').innerHTML = html;
+            });
+        }
+        document.getElementById('upload-form').onsubmit = function (e) {
+            e.preventDefault();
+            let formData = new FormData();
+            formData.append('file', document.getElementById('file-input').files[0]);
+            fetch('/api/upload', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: formData
+            }).then(r => r.json()).then(data => {
+                if (data.success) loadFiles();
+            });
+        };
+    </script>
+</body>
+
+</html>
