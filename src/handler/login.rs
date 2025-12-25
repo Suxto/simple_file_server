@@ -32,7 +32,7 @@ pub async fn login(
         .await;
 
     if valid {
-        info!("用户 '{}' 登录成功", payload.username);
+        info!("用户 '{}' 登录成功, session: {}", payload.username, &session_id);
         Json(LoginResponse {
             success: true,
             token: Some(session_id),

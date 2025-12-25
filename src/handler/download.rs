@@ -15,9 +15,7 @@ pub async fn download(
     
     (
         StatusCode::OK,
-        [(
-            axum::http::header::CONTENT_DISPOSITION,
-        )],
+        
     )
         .into_response()
 }
