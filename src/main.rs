@@ -2,6 +2,7 @@ mod handler;
 mod model;
 mod router;
 mod utils;
+mod extractors;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
