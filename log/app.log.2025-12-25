@@ -1,0 +1,70 @@
+2025-12-25T16:14:33.108713Z  INFO simple_file_manager: Server running at http://127.0.0.1:8080
+2025-12-25T16:28:55.701234Z  INFO simple_file_manager::handler::login: 用户 'admin' 登录成功, session: 03eac2c6-40ab-41d0-b964-bf604ff54454
+2025-12-25T16:28:56.804271Z  INFO simple_file_manager::handler::files: 用户 'admin' 请求列出文件: ///
+2025-12-25T16:29:13.146326Z  INFO simple_file_manager::handler::files: 用户 'admin' 请求列出文件: ///
+2025-12-25T16:29:27.922857Z  INFO simple_file_manager::handler::files: 用户 'admin' 请求列出文件: root/
+2025-12-25T16:29:27.923076Z ERROR simple_file_manager::handler::files: 用户 'admin' 列出文件失败: root/
+2025-12-25T16:44:48.603972Z  INFO simple_file_manager: Server running at http://127.0.0.1:8080
+2025-12-25T16:45:33.668535Z  INFO simple_file_manager::handler::login: 用户 'admin' 登录成功, session: 9bbb6457-6a2f-47d8-8bca-925e8f724df2
+2025-12-25T16:45:34.767553Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: //
+2025-12-25T16:45:49.241646Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: root/
+2025-12-25T16:45:49.241909Z  INFO simple_file_manager::handler::list: 用户 'admin' 查看目录成功: root/
+2025-12-25T16:46:06.415975Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: root/XboxGames
+2025-12-25T16:46:09.100741Z ERROR simple_file_manager::handler::list: 用户 'admin' 查看目录失败: root/XboxGames
+2025-12-25T16:47:27.946027Z  INFO simple_file_manager: Server running at http://127.0.0.1:8080
+2025-12-25T16:47:35.688432Z  INFO simple_file_manager::handler::login: 用户 'admin' 登录成功, session: 45e76be2-b2ff-4ca2-b8d7-ac850484eb08
+2025-12-25T16:47:36.786618Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: //
+2025-12-25T16:48:16.186569Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: root/XboxGames
+2025-12-25T16:48:16.186684Z  INFO simple_file_manager::handler::list: 用户 'admin' 读取目录: //XboxGames
+2025-12-25T16:48:18.850237Z ERROR simple_file_manager::handler::list: 用户 'admin' 查看目录失败: root/XboxGames
+2025-12-25T16:49:39.582164Z  INFO simple_file_manager: Server running at http://127.0.0.1:8080
+2025-12-25T16:49:45.518219Z  INFO simple_file_manager::handler::login: 用户 'admin' 登录成功, session: 62f77928-c4d8-4e9a-b64b-2147f6abe2bb
+2025-12-25T16:49:46.619596Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: //
+2025-12-25T16:49:54.368123Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: root/XboxGames
+2025-12-25T16:49:54.368242Z  INFO simple_file_manager::handler::list: 用户 'admin' 读取目录: /XboxGames
+2025-12-25T16:49:54.368493Z  INFO simple_file_manager::handler::list: 用户 'admin' 查看目录成功: root/XboxGames
+2025-12-25T16:50:35.793555Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: root/XboxGames/
+2025-12-25T16:50:35.793661Z  INFO simple_file_manager::handler::list: 用户 'admin' 读取目录: /XboxGames/
+2025-12-25T16:50:35.793881Z  INFO simple_file_manager::handler::list: 用户 'admin' 查看目录成功: root/XboxGames/
+2025-12-25T16:50:47.258142Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: root/XboxGames/GameSave
+2025-12-25T16:50:47.258260Z  INFO simple_file_manager::handler::list: 用户 'admin' 读取目录: /XboxGames/GameSave
+2025-12-25T16:50:47.258521Z  INFO simple_file_manager::handler::list: 用户 'admin' 查看目录成功: root/XboxGames/GameSave
+2025-12-25T16:50:58.050975Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: root/XboxGames/GameSave/pgs
+2025-12-25T16:50:58.051089Z  INFO simple_file_manager::handler::list: 用户 'admin' 读取目录: /XboxGames/GameSave/pgs
+2025-12-25T16:50:58.051291Z  INFO simple_file_manager::handler::list: 用户 'admin' 查看目录成功: root/XboxGames/GameSave/pgs
+2025-12-25T16:52:49.281315Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: root/XboxGames/GameSave/pgs
+2025-12-25T16:52:49.281423Z  INFO simple_file_manager::handler::list: 用户 'admin' 读取目录: /XboxGames/GameSave/pgs
+2025-12-25T16:52:49.281635Z  INFO simple_file_manager::handler::list: 用户 'admin' 查看目录成功: root/XboxGames/GameSave/pgs
+2025-12-25T16:53:17.428763Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/aaaa.txt
+2025-12-25T16:53:54.237910Z  INFO simple_file_manager: Server running at http://127.0.0.1:8080
+2025-12-25T16:54:48.797587Z  INFO simple_file_manager::handler::login: 用户 'admin' 登录成功, session: beb64165-29ba-41dc-9cfe-db53934510a6
+2025-12-25T16:54:49.462436Z  INFO simple_file_manager::handler::login: 用户 'admin' 登录成功, session: 699c44d1-ce1c-46fa-b2f1-eda732629fa0
+2025-12-25T16:54:49.902156Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: //
+2025-12-25T16:55:00.807962Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/aaaa.txt
+2025-12-25T16:56:27.183987Z  INFO simple_file_manager: Server running at http://127.0.0.1:8080
+2025-12-25T16:56:31.607948Z  INFO simple_file_manager::handler::login: 用户 'admin' 登录成功, session: 116e89fd-1cef-4829-8fcc-955370880e64
+2025-12-25T16:56:32.474850Z  INFO simple_file_manager::handler::login: 用户 'admin' 登录成功, session: 9b71acf1-8196-49ab-bcad-f0972c54c966
+2025-12-25T16:56:32.695403Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: //
+2025-12-25T16:56:33.712287Z  INFO simple_file_manager::handler::list: 用户 'admin' 请求列出: //
+2025-12-25T16:56:44.648186Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/aaaa.txt
+2025-12-25T16:56:44.648306Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/aaaa.txt
+2025-12-25T16:57:11.367250Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs
+2025-12-25T16:57:11.367357Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs
+2025-12-25T16:57:26.161431Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:57:26.161585Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:57:27.930473Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:57:27.930641Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:57:41.959265Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:57:41.959378Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:58:31.914544Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a
+2025-12-25T16:58:31.914662Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a
+2025-12-25T16:58:36.670696Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:58:36.670802Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:58:37.326930Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:58:37.327036Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:58:38.058311Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:58:38.058416Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:59:51.119807Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a.txt
+2025-12-25T16:59:51.119919Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a.txt
+2025-12-25T17:00:38.483960Z  INFO simple_file_manager::handler::download: 用户 'admin' 请求下载: root/XboxGames/GameSave/pgs/a.txt
+2025-12-25T17:00:38.484113Z  INFO simple_file_manager::handler::download: 用户 'admin' 下载文件: /XboxGames/GameSave/pgs/a.txt

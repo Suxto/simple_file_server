@@ -3,87 +3,491 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Simple File Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件管理器</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 2em;
+            background-color: #f8f9fa;
+            padding-top: 20px;
+            padding-bottom: 20px;
         }
 
-        .file-list {
-            margin-top: 2em;
+        .file-card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            height: 100%;
+            background: white;
         }
 
-        .file-item {
-            margin: 0.5em 0;
+        .file-card:hover {
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
         }
 
-        .login {
-            margin-bottom: 2em;
+        .file-icon {
+            font-size: 48px;
+            text-align: center;
+            padding: 20px 0;
+            color: #6c757d;
+        }
+
+        .file-info {
+            padding: 15px;
+        }
+
+        .file-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-size {
+            font-size: 0.8em;
+            color: #6c757d;
+        }
+
+        .file-actions {
+            padding: 0 15px 15px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .breadcrumb {
+            background-color: transparent;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+
+        .upload-area {
+            border: 2px dashed #ced4da;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: border-color 0.3s;
+        }
+
+        .upload-area:hover,
+        .upload-area.dragover {
+            border-color: #667eea;
+        }
+
+        .nav-buttons {
+            margin-bottom: 20px;
+        }
+
+        .file-grid {
+            margin-bottom: 20px;
+        }
+
+        .no-files {
+            text-align: center;
+            color: #6c757d;
+            padding: 40px;
         }
     </style>
 </head>
 
 <body>
-    <div class="login">
-        <h2>登录</h2>
-        <input type="text" id="username" placeholder="用户名">
-        <input type="password" id="password" placeholder="密码">
-        <button onclick="login()">登录</button>
-        <div id="login-status"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2><i class="bi bi-files"></i> 文件管理器</h2>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" id="uploadBtn">
+                            <i class="bi bi-upload"></i> 上传文件
+                        </button>
+                        <button class="btn btn-outline-secondary" id="refreshBtn">
+                            <i class="bi bi-arrow-repeat"></i> 刷新
+                        </button>
+                        <button class="btn btn-outline-danger" id="logoutBtn">
+                            <i class="bi bi-box-arrow-right"></i> 退出登录
+                        </button>
+                    </div>
+                </div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb" id="breadcrumb">
+                        <li class="breadcrumb-item"><a href="#" onclick="goToRoot(); return false;"
+                                data-path="/">根目录</a></li>
+                    </ol>
+                </nav>
+
+                <div class="upload-area" id="uploadArea">
+                    <i class="bi bi-cloud-upload" style="font-size: 3rem; color: #6c757d;"></i>
+                    <p class="mt-2">拖拽文件到此处或点击上传</p>
+                    <input type="file" id="fileInput" style="display: none;" multiple>
+                </div>
+
+                <div class="row file-grid" id="fileGrid">
+                    <!-- 文件网格将通过JavaScript动态生成 -->
+                </div>
+
+                <div class="no-files d-none" id="noFilesMessage">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-2">此目录中没有文件</p>
+                </div>
+            </div>
+        </div>
     </div>
-    <div id="file-manager" style="display:none;">
-        <h2>文件管理</h2>
-        <form id="upload-form">
-            <input type="file" id="file-input" name="file">
-            <button type="submit">上传</button>
-        </form>
-        <div class="file-list" id="file-list"></div>
-    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let token = '';
-        function login() {
-            fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: document.getElementById('username').value,
-                    password: document.getElementById('password').value
-                })
-            }).then(r => r.json()).then(data => {
-                if (data.success) {
-                    token = data.token;
-                    document.getElementById('login-status').innerText = '登录成功';
-                    document.getElementById('file-manager').style.display = '';
-                    loadFiles();
-                } else {
-                    document.getElementById('login-status').innerText = '登录失败';
+        // 获取token
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login.html';
+        }
+
+        // 当前路径
+        let currentPath = '/';
+
+        // 初始化页面
+        $(document).ready(function () {
+            loadFiles(currentPath);
+            setupEventListeners();
+        });
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 上传按钮点击事件
+            $('#uploadBtn').click(function () {
+                $('#fileInput').click();
+            });
+
+            // 文件选择事件
+            $('#fileInput').change(function (e) {
+                const files = e.target.files;
+                handleFileUpload(files);
+            });
+
+            // 拖拽上传事件
+            const uploadArea = $('#uploadArea')[0];
+            uploadArea.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                $(this).addClass('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', function (e) {
+                e.preventDefault();
+                $(this).removeClass('dragover');
+            });
+
+            uploadArea.addEventListener('drop', function (e) {
+                e.preventDefault();
+                $(this).removeClass('dragover');
+                const files = e.dataTransfer.files;
+                handleFileUpload(files);
+            });
+
+            // 刷新按钮
+            $('#refreshBtn').click(function () {
+                loadFiles(currentPath);
+            });
+
+            // 退出登录
+            $('#logoutBtn').click(function () {
+                localStorage.removeItem('token');
+                window.location.href = '/login.html';
+            });
+        }
+
+        // 加载文件列表
+        function loadFiles(path) {
+            const encodedPath = encodeURIComponent(path);
+            const url = `/api/files?path=${encodedPath}`;
+
+            $.ajax({
+                url: url,
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                success: function (response) {
+                    displayFiles(response.files, path);
+                },
+                error: function (xhr, status, error) {
+                    if (xhr.status === 401) {
+                        // 认证失败，重定向到登录页面
+                        alert('登录已过期，请重新登录');
+                        localStorage.removeItem('token');
+                        window.location.href = '/login.html';
+                        return;
+                    }
+                    console.error('加载文件失败:', error);
+                    alert('加载文件失败: ' + (xhr.responseJSON?.message || '未知错误'));
                 }
             });
         }
-        function loadFiles() {
-            fetch('/api/files', {
-                headers: { 'Authorization': 'Bearer ' + token }
-            }).then(r => r.json()).then(data => {
-                let html = '';
-                data.files.forEach(f => {
-                    html += `<div class="file-item">${f.is_dir ? '📁' : '📄'} ${f.name} ${!f.is_dir ? `<a href="/api/download?name=${encodeURIComponent(f.name)}&token=${token}">下载</a>` : ''}</div>`;
-                });
-                document.getElementById('file-list').innerHTML = html;
+
+        // 显示文件列表
+        function displayFiles(files, path) {
+            const fileGrid = $('#fileGrid');
+            fileGrid.empty();
+
+            if (files.length === 0) {
+                $('#noFilesMessage').removeClass('d-none');
+                return;
+            }
+
+            $('#noFilesMessage').addClass('d-none');
+
+            files.forEach(function (file) {
+                const card = createFileCard(file);
+                fileGrid.append(card);
+            });
+
+            // 为文件夹添加双击事件
+            $('.file-card[data-is-dir="true"]').on('dblclick', function () {
+                const filePath = $(this).data('path');
+                openDirectory(filePath);
             });
         }
-        document.getElementById('upload-form').onsubmit = function (e) {
-            e.preventDefault();
-            let formData = new FormData();
-            formData.append('file', document.getElementById('file-input').files[0]);
-            fetch('/api/upload', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token },
-                body: formData
-            }).then(r => r.json()).then(data => {
-                if (data.success) loadFiles();
+
+        // 创建文件卡片
+        function createFileCard(file) {
+            const isDirectory = file.is_dir; // 使用is_dir而不是type
+            const iconClass = isDirectory ? 'bi-folder' : getFileIcon(file.name);
+            const size = isDirectory ? '(文件夹)' : '(文件)';
+
+            const card = `
+                <div class="col-md-3 col-sm-6 mb-4">
+                    <div class="file-card" ${isDirectory ? 'data-is-dir="true"' : 'data-is-dir="false"'} data-path="${file.name}">
+                        <div class="file-icon">
+                            <i class="bi ${iconClass}"></i>
+                        </div>
+                        <div class="file-info">
+                            <div class="file-name" title="${file.name}">${truncateText(file.name, 20)}</div>
+                            <div class="file-size">${size}</div>
+                        </div>
+                        <div class="file-actions">
+                            ${isDirectory ?
+                    `<button class="btn btn-sm btn-outline-primary" onclick="openDirectory('${buildPath(file.name)}')">
+                                    <i class="bi bi-folder"></i> 打开
+                                </button>` :
+                    `<button class="btn btn-sm btn-outline-success" onclick="downloadFile('${file.name}')">
+                                    <i class="bi bi-download"></i> 下载
+                                </button>`
+                }
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return card;
+        }
+
+        // 构建完整路径
+        function buildPath(name) {
+            if (currentPath === '/') {
+                return '/' + name;
+            } else {
+                return currentPath + '/' + name;
+            }
+        }
+
+        // 根据文件扩展名返回图标
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+            const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'wmv'];
+            const audioExts = ['mp3', 'wav', 'flac', 'aac', 'ogg'];
+            const docExts = ['pdf', 'doc', 'docx', 'txt', 'xls', 'xlsx', 'ppt', 'pptx'];
+
+            if (imageExts.includes(ext)) return 'bi-image';
+            if (videoExts.includes(ext)) return 'bi-film';
+            if (audioExts.includes(ext)) return 'bi-music-note';
+            if (docExts.includes(ext)) return 'bi-file-earmark-text';
+            return 'bi-file-earmark';
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 截断文本
+        function truncateText(text, maxLength) {
+            if (text.length <= maxLength) return text;
+            return text.substring(0, maxLength) + '...';
+        }
+
+        // 打开目录
+        function openDirectory(path) {
+            currentPath = path;
+            updateBreadcrumb(path);
+            loadFiles(path);
+        }
+
+        // 下载文件
+        function downloadFile(name) {
+            let filePath;
+            if (currentPath === '/') {
+                filePath = '/' + name;
+            } else {
+                filePath = currentPath + '/' + name;
+            }
+            const url = `/api/download?path=${encodeURIComponent(filePath)}`;
+            
+            // 创建一个隐藏的iframe来处理下载，以便捕获错误
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = url;
+            iframe.id = 'download-iframe';
+            
+            // 监听错误
+            iframe.onload = function() {
+                // 尝试获取iframe内容（如果失败会抛出错误）
+                try {
+                    const content = iframe.contentDocument || iframe.contentWindow.document;
+                    if(content && content.title && content.title.includes('401')) {
+                        handleAuthError();
+                    }
+                } catch (e) {
+                    // 捕获跨域错误等
+                    // 我们不能直接检查响应状态，所以依赖fetch方法
+                }
+            };
+            
+            iframe.onerror = function() {
+                handleAuthError();
+            };
+            
+            document.body.appendChild(iframe);
+            
+            // 替代方案：使用fetch来检查认证状态
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            })
+            .then(response => {
+                if (response.status === 401) {
+                    handleAuthError();
+                } else if (!response.ok) {
+                    console.error('下载失败:', response.status);
+                }
+            })
+            .catch(error => {
+                console.error('下载请求错误:', error);
             });
-        };
+        }
+        
+        // 处理认证错误的通用函数
+        function handleAuthError() {
+            alert('登录已过期，请重新登录');
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+
+        // 更新面包屑导航
+        function updateBreadcrumb(path) {
+            const breadcrumb = $('#breadcrumb');
+            breadcrumb.empty();
+
+            // 添加根目录
+            breadcrumb.append('<li class="breadcrumb-item"><a href="#" onclick="goToRoot(); return false;" data-path="/">根目录</a></li>');
+
+            // 添加路径层级
+            if (path !== '/') {
+                const pathParts = path.split('/').filter(p => p);
+                let currentPathPart = '';
+
+                pathParts.forEach(function (part, index) {
+                    currentPathPart += '/' + part;
+                    if (index === pathParts.length - 1) {
+                        breadcrumb.append(`<li class="breadcrumb-item active">${part}</li>`);
+                    } else {
+                        breadcrumb.append(`<li class="breadcrumb-item"><a href="#" onclick="goToPath('${currentPathPart}'); return false;" data-path="${currentPathPart}">${part}</a></li>`);
+                    }
+                });
+            }
+        }
+
+        // 跳转到根目录
+        function goToRoot() {
+            currentPath = '/';
+            updateBreadcrumb(currentPath);
+            loadFiles(currentPath);
+        }
+
+        // 跳转到指定路径
+        function goToPath(path) {
+            currentPath = path;
+            loadFiles(path);
+            updateBreadcrumb(path);
+        }
+
+        // 处理文件上传
+        function handleFileUpload(files) {
+            for (let i = 0; i < files.length; i++) {
+                uploadFile(files[i]);
+            }
+        }
+
+        // 上传单个文件
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('path', currentPath);
+
+            $.ajax({
+                url: '/api/upload',
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                xhr: function () {
+                    const xhr = new window.XMLHttpRequest();
+                    // 上传进度
+                    xhr.upload.addEventListener("progress", function (evt) {
+                        if (evt.lengthComputable) {
+                            const percentComplete = evt.loaded / evt.total * 100;
+                            console.log('上传进度: ' + Math.round(percentComplete) + '%');
+                        }
+                    }, false);
+                    return xhr;
+                },
+                success: function (response) {
+                    console.log('文件上传成功:', file.name);
+                    loadFiles(currentPath); // 重新加载文件列表
+                },
+                error: function (xhr, status, error) {
+                    if (xhr.status === 401) {
+                        // 认证失败，重定向到登录页面
+                        alert('登录已过期，请重新登录');
+                        localStorage.removeItem('token');
+                        window.location.href = '/login.html';
+                        return;
+                    }
+                    console.error('文件上传失败:', error);
+                    alert('文件上传失败: ' + (xhr.responseJSON?.message || '未知错误'));
+                }
+            });
+        }
+
+        // 全局函数供HTML使用
+        window.openDirectory = openDirectory;
+        window.downloadFile = downloadFile;
+        window.goToRoot = goToRoot;
+        window.goToPath = goToPath;
     </script>
 </body>
 

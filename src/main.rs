@@ -1,8 +1,8 @@
+mod extractors;
 mod handler;
 mod model;
 mod router;
 mod utils;
-mod extractors;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -10,6 +10,9 @@ use tracing::{error, info};
 use tracing_subscriber::fmt::format::FmtSpan;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+
+// 全局变量保存 tracing 的 guard，防止其被丢弃
+static mut LOG_GUARD: Option<tracing_appender::non_blocking::WorkerGuard> = None;
 
 #[tokio::main]
 async fn main() {
@@ -55,25 +58,33 @@ fn init_tracing() {
         std::fs::create_dir(log_dir).expect("创建日志目录失败");
     }
 
-    // 文件层
+    // 文件层 - 不使用颜色格式
     let file_appender = tracing_appender::rolling::RollingFileAppender::new(
         tracing_appender::rolling::Rotation::DAILY,
         log_dir,
         "app.log",
     );
-    let (non_blocking_file, _guard) = tracing_appender::non_blocking(file_appender);
+    let (non_blocking_file, guard) = tracing_appender::non_blocking(file_appender);
+
+    // 将 guard 存储到全局变量中，防止其被丢弃
+    unsafe {
+        LOG_GUARD = Some(guard);
+    }
+
     let file_layer = tracing_subscriber::fmt::layer()
         .with_writer(non_blocking_file)
         .with_span_events(FmtSpan::CLOSE)
         .with_target(true)
-        .with_level(true);
+        .with_level(true)
+        .with_ansi(false);
 
-    // 控制台层
+    // 控制台层 - 可以选择是否显示颜色
     let stdout_layer = tracing_subscriber::fmt::layer()
         .with_writer(std::io::stdout)
         .with_span_events(FmtSpan::CLOSE)
         .with_target(true)
-        .with_level(true);
+        .with_level(true)
+        .with_ansi(true);
 
     // 组合两个层
     tracing_subscriber::registry()

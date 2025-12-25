@@ -1,7 +1,7 @@
 use crate::{extractors::AuthUser, model::AppState};
 use axum::{
     Json,
-    extract::{Query, State},
+    extract::{Query, State, path},
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
@@ -11,9 +11,9 @@ use tracing::{error, info};
 const DEFAULT_PERMISSIONS: u8 = 0b111;
 
 #[derive(Serialize, Deserialize)]
-pub struct FileListRequest {
-    pub root: String,
-    pub path: String,
+pub struct FileRequest {
+    pub root: Option<String>,
+    pub path: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -30,15 +30,14 @@ pub struct FileListResponse {
 
 pub async fn list_files(
     State(state): State<AppState>,
-    Query(params): Query<FileListRequest>,
+    Query(params): Query<FileRequest>,
     AuthUser(user): AuthUser,
 ) -> impl IntoResponse {
-    info!(
-        "用户 '{}' 请求列出文件: {}/{}",
-        &user.username, &params.root, &params.path
-    );
-    // state.path.get()
-    if params.root.is_empty() {
+    let root = params.root.unwrap_or("".to_string());
+    let path = params.path.unwrap_or("".to_string());
+    info!("用户 '{}' 请求列出: {}/{}", &user.username, &root, &path);
+
+    if root.is_empty() {
         return (
             StatusCode::OK,
             Json(FileListResponse {
@@ -55,8 +54,12 @@ pub async fn list_files(
         )
             .into_response();
     }
-    if let Some(file_list) = state.path.get(&params.root).and_then(|path| {
-        let full_path = format!("{}/{}", path.path, params.path);
+    if let Some(file_list) = state.path.get(&root).and_then(|p| {
+        let full_path = match path.len() {
+            0 => p.path.clone(),
+            _ => format!("{}{}", p.path, path),
+        };
+        info!("用户 '{}' 读取目录: {}", &user.username, &full_path);
         let dir_entries = std::fs::read_dir(&full_path).ok()?;
 
         let files: Vec<File> = dir_entries
@@ -74,14 +77,14 @@ pub async fn list_files(
         Some(files)
     }) {
         info!(
-            "用户 '{}' 成功列出文件: {}/{}",
-            &user.username, &params.root, &params.path
+            "用户 '{}' 查看目录成功: {}/{}",
+            &user.username, &root, &path
         );
         (StatusCode::OK, Json(FileListResponse { files: file_list })).into_response()
     } else {
         error!(
-            "用户 '{}' 列出文件失败: {}/{}",
-            &user.username, &params.root, &params.path
+            "用户 '{}' 查看目录失败: {}/{}",
+            &user.username, &root, &path
         );
         (
             StatusCode::NOT_FOUND,

@@ -1,10 +1,11 @@
 use crate::model::{AppState, UserConfig};
 use axum::{
-    Json, async_trait,
+    Json, 
     extract::FromRequestParts,
     http::{StatusCode, header, request::Parts},
     response::{IntoResponse, Redirect, Response},
 };
+use serde_json::json;
 
 /// 自动从请求中提取并验证用户信息的Extractor
 ///
@@ -23,8 +24,12 @@ pub struct AuthError;
 
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
-        // 重定向到login.html
-        Redirect::to("/login.html").into_response()
+        // 返回401状态码而不是重定向，前端可以处理此错误
+        let body = Json(json!({
+            "error": "Unauthorized",
+            "message": "Authentication failed. Please log in again."
+        }));
+        (StatusCode::UNAUTHORIZED, body).into_response()
     }
 }
 
@@ -37,7 +42,7 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         let app_state = state.as_ref();
-
+        // return Ok(AuthUser(app_state.get_user_config("admin").unwrap().clone()));
         // 从header中获取token
         let token = parts
             .headers
