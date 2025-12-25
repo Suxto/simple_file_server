@@ -1,14 +1,6 @@
 {
-    "name": "my-project-devcontainer",
-    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",  // Any generic, debian-based image.
+    "image": "ghcr.io/devcontainers/templates/rust:5.0.0",
     "features": {
-        "ghcr.io/devcontainers/features/go:1": {
-            "version": "latest"
-        },
-        "ghcr.io/devcontainers/features/docker-in-docker:1": {
-            "version": "latest",
-            "moby": true
-        },
         "ghcr.io/devcontainers/features/rust:1": {}
     }
 }
