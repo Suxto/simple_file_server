@@ -1,4 +1,9 @@
-# 挂载的文件路径（此处路径权限的配置高于用户权限配置）
+[misc]
+debug = true
+debug_session = "admin"
+log_level = "debug"
+port = 8080
+
 [[paths]]
 name = "root"
 path = "/" # 允许访问的路径，例子 / 表示/下面的所有路径或文件，或者使用集合 /?usr|bin? 将允许访问这些文件或者下面的路径

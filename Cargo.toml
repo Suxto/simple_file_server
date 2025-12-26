@@ -10,7 +10,7 @@ axum = { version = "0.8.8", features = ["multipart"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.147"
-toml = "0.8"
+toml = "0.9.8"
 tower = "0.5.2"
 uuid = { version = "1", features = ["v4"] }
 async-trait = "0.1"
@@ -29,3 +29,18 @@ tracing-appender = "0.2"
 
 # MIME类型猜测
 mime_guess = "2.0"
+
+
+# HTTPS 支持
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+rustls-pemfile = "2.0"
+
+[dependencies.rustls]
+version = "0.23"
+default-features = false
+features = ["ring", "tls12"]
+
+[dependencies.tokio-rustls]
+version = "0.26"
+default-features = false
+features = ["ring", "tls12"]

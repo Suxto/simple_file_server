@@ -30,20 +30,87 @@ async fn main() {
     let state = model::AppState::new_form_config(Arc::new(config));
     let app = router::create_router(state);
 
-    // 启动服务器
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
-    info!("Server running at http://{}", addr);
-    let listener = match tokio::net::TcpListener::bind(&addr).await {
-        Ok(l) => l,
-        Err(e) => {
-            error!("端口绑定失败: {}", e);
+    // 从命令行参数或环境变量获取端口配置
+    let https_port: u16 = std::env::var("HTTPS_PORT")
+        .unwrap_or_else(|_| "8443".to_string())
+        .parse()
+        .expect("HTTPS 端口必须是数字");
+    
+    let http_port: u16 = std::env::var("HTTP_PORT")
+        .unwrap_or_else(|_| "8080".to_string())
+        .parse()
+        .expect("HTTP 端口必须是数字");
+
+    let https_addr = SocketAddr::from(([127, 0, 0, 1], https_port));
+    let http_addr = SocketAddr::from(([127, 0, 0, 1], http_port));
+
+    // 检查是否有证书文件，如果有则启动 HTTPS 服务器
+    if std::path::Path::new("certs/cert.pem").exists() && std::path::Path::new("certs/key.pem").exists() {
+        info!("检测到证书文件，启动 HTTPS 服务器...");
+        
+        // 创建 TLS 配置
+        let rustls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(
+            "certs/cert.pem",
+            "certs/key.pem",
+        )
+        .await
+        .expect("无法加载 TLS 证书/私钥");
+
+        // 启动 HTTPS 服务器
+        info!("HTTPS 服务器运行在 https://{}", https_addr);
+        let https_listener = match tokio::net::TcpListener::bind(&https_addr).await {
+            Ok(l) => l,
+            Err(e) => {
+                error!("HTTPS 端口绑定失败: {}", e);
+                std::process::exit(1);
+            }
+        };
+        
+        let https_server = axum_server::from_tcp_rustls(https_listener.into_std().expect("转换 TcpListener 失败"), rustls_config)
+            .serve(app.clone().into_make_service());
+
+        // 同时启动 HTTP 服务器作为备选
+        info!("HTTP 服务器运行在 http://{}", http_addr);
+        let http_listener = match tokio::net::TcpListener::bind(&http_addr).await {
+            Ok(l) => l,
+            Err(e) => {
+                error!("HTTP 端口绑定失败: {}", e);
+                std::process::exit(1);
+            }
+        };
+        
+        let http_server = axum::serve(http_listener, app.into_make_service());
+        
+        // 并行运行 HTTP 和 HTTPS 服务器
+        tokio::select! {
+            result = https_server => {
+                if let Err(e) = result {
+                    error!("HTTPS 服务器错误: {}", e);
+                    std::process::exit(1);
+                }
+            },
+            result = http_server => {
+                if let Err(e) = result {
+                    error!("HTTP 服务器错误: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
+    } else {
+        info!("未找到证书文件，仅启动 HTTP 服务器");
+        info!("服务器运行在 http://{}", http_addr);
+        let listener = match tokio::net::TcpListener::bind(&http_addr).await {
+            Ok(l) => l,
+            Err(e) => {
+                error!("端口绑定失败: {}", e);
+                std::process::exit(1);
+            }
+        };
+
+        if let Err(e) = axum::serve(listener, app).await {
+            error!("服务器错误: {}", e);
             std::process::exit(1);
         }
-    };
-
-    if let Err(e) = axum::serve(listener, app).await {
-        error!("服务器错误: {}", e);
-        std::process::exit(1);
     }
 }
 

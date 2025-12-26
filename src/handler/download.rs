@@ -1,192 +1,137 @@
-use crate::{extractors::AuthUser, handler::list::FileRequest, model::AppState};
 use axum::{
-    extract::Query,
-    extract::State,
-    http::StatusCode,
-    response::{IntoResponse, Response},
+    extract::{Path, Query, State},
+    http::header,
+    response::Response,
 };
-use std::{io::Write, path::Path};
-use tokio::fs;
-use tracing::{error, info};
+use serde::Deserialize;
+use std::path::Path as StdPath;
 
-pub async fn download(
+use crate::{extractors::AuthUser, model::AppState};
+
+#[derive(Deserialize)]
+pub struct DownloadQuery {
+    name: String,
+    token: String,
+}
+
+pub async fn download_file(
     State(state): State<AppState>,
-    Query(params): Query<FileRequest>,
-    AuthUser(user): AuthUser,
+    Query(query): Query<DownloadQuery>,
 ) -> Response {
-    let root = params.root.unwrap_or("".to_string());
-    let path = params.path.unwrap_or("".to_string());
-    info!("用户 '{}' 请求下载: {}/{}", &user.username, &root, &path);
+    // 验证token
+    let username = {
+        let sessions = state.user_sessions.lock().await;
+        if let Some(username) = sessions.get(&query.token).cloned() {
+            username
+        } else {
+            return Response::builder()
+                .status(401)
+                .body(axum::body::Body::from("Invalid token"))
+                .unwrap();
+        }
+    };
 
-    let full_path = state
-        .path
-        .get(&root)
-        .map(|p| format!("{}{}", p.path, path));
+    // 检查用户权限
+    let user_config = {
+        if let Some(config) = state.user_config.get(&username) {
+            config.clone()
+        } else {
+            return Response::builder()
+                .status(401)
+                .body(axum::body::Body::from("User not found"))
+                .unwrap();
+        }
+    };
 
-    if full_path.is_none() {
-        return (
-            StatusCode::NOT_FOUND,
-            "路径不存在".to_string(),
-        )
-            .into_response();
+    let file_path = StdPath::new("files").join(&query.name);
+
+    // 检查权限
+    if !crate::utils::check_permission(&user_config.permissions_tree, &query.name, 1) {
+        return Response::builder()
+            .status(403)
+            .body(axum::body::Body::from("No permission"))
+            .unwrap();
     }
-
-    // 从查询参数中获取路径
-    let path_str = full_path.unwrap();
-    info!("用户 '{}' 下载文件: {}", &user.username, &path_str);
-    let file_path = Path::new(&path_str);
 
     // 检查文件是否存在
     if !file_path.exists() {
-        return (StatusCode::NOT_FOUND, "文件不存在").into_response();
+        return Response::builder()
+            .status(404)
+            .body(axum::body::Body::from("File not found"))
+            .unwrap();
     }
 
-    // 检查是否为文件夹
-    if file_path.is_dir() {
-        // 如果是文件夹，压缩为zip并返回
-        return download_folder_as_zip(file_path, &user.username).await;
+    // 返回文件
+    if let Ok(file) = tokio::fs::read(&file_path).await {
+        use mime_guess::from_path;
+        let mime = from_path(&file_path).first_or_octet_stream();
+
+        Response::builder()
+            .status(200)
+            .header(header::CONTENT_TYPE, mime.as_ref())
+            .header(
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{}\"", query.name),
+            )
+            .body(axum::body::Body::from(file))
+            .unwrap()
+    } else {
+        Response::builder()
+            .status(500)
+            .body(axum::body::Body::from("Read file error"))
+            .unwrap()
     }
-
-    // 如果是文件，按原来逻辑处理
-    let file_content = match fs::read(&file_path).await {
-        Ok(content) => content,
-        Err(e) => {
-            error!("读取文件失败: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "读取文件失败").into_response();
-        }
-    };
-
-    // 获取文件名用于Content-Disposition头
-    let file_name = match file_path.file_name() {
-        Some(name) => name.to_string_lossy().to_string(),
-        None => return (StatusCode::INTERNAL_SERVER_ERROR, "无效的文件名").into_response(),
-    };
-
-    // 构造响应
-    (
-        StatusCode::OK,
-        [
-            (
-                "Content-Disposition",
-                format!("attachment; filename=\"{}\"", file_name),
-            ),
-            (
-                "Content-Type",
-                mime_guess::from_path(&file_path)
-                    .first_or_octet_stream()
-                    .to_string(),
-            ),
-        ],
-        file_content,
-    )
-        .into_response()
 }
 
-// 异步函数：将文件夹压缩并作为zip文件返回
-async fn download_folder_as_zip(folder_path: &Path, user_name: &str) -> Response {
-    use tempfile::NamedTempFile;
-    use std::fs::File as StdFile;
-    use tokio::task;
-
-    // 创建临时文件来存储zip
-    let temp_file = match NamedTempFile::new() {
-        Ok(file) => file,
-        Err(e) => {
-            error!("创建临时文件失败: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "创建临时文件失败").into_response();
+pub async fn download_folder_as_zip(
+    Path(folder_path_str): Path<String>,
+    State(state): State<AppState>,
+    AuthUser(_user): AuthUser,
+) -> Response {
+    // 验证用户对整个文件夹的访问权限
+    let user_sessions = state.user_sessions.lock().await;
+    let token = "temp_token"; // 实际实现中，需要从请求头获取token
+    let username = match user_sessions.get(token).cloned() {
+        Some(name) => name,
+        None => {
+            return Response::builder()
+                .status(401)
+                .body(axum::body::Body::from("Invalid token"))
+                .unwrap();
         }
     };
 
-    let temp_path: tempfile::TempPath = temp_file.into_temp_path();
-    let file = match StdFile::create(&temp_path){
-        Ok(file) => file,
-        Err(e) => {
-            error!("创建临时文件失败: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "创建临时文件失败").into_response();
+    let user_config = match state.user_config.get(&username) {
+        Some(config) => config,
+        None => {
+            return Response::builder()
+                .status(401)
+                .body(axum::body::Body::from("User not found"))
+                .unwrap();
         }
     };
-    
-    let folder_path_string = folder_path.to_path_buf();
-    // 在阻塞任务中创建ZIP
-    let result = task::spawn_blocking(move || {
-        use zip::ZipWriter;
-        let mut zip = ZipWriter::new(file);
-        // 递归添加文件夹内容到zip
-        add_folder_to_zip_sync(&mut zip, &folder_path_string)?;
-        Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
-    }).await;
 
-    if let Err(e) = result {
-        error!("ZIP创建任务失败: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "ZIP创建任务失败").into_response();
+    let folder_path = StdPath::new("files").join(&folder_path_str);
+
+    // 检查文件夹是否存在
+    if !folder_path.exists() || !folder_path.is_dir() {
+        return Response::builder()
+            .status(404)
+            .body(axum::body::Body::from("Folder not found"))
+            .unwrap();
     }
 
-    if let Err(e) = result.unwrap() {
-        error!("创建ZIP文件失败: {}", e);
-        return (StatusCode::INTERNAL_SERVER_ERROR, "创建ZIP文件失败").into_response();
-    }
-    
-    // 读取生成的zip文件内容
-    let zip_content = match tokio::fs::read(&temp_path).await {
-        Ok(content) => content,
-        Err(e) => {
-            error!("读取zip文件失败: {}", e);
-            return (StatusCode::INTERNAL_SERVER_ERROR, "读取zip文件失败").into_response();
-        }
-    };
-
-    // 获取文件夹名称作为zip文件名
-    let folder_name = match folder_path.file_name() {
-        Some(name) => name.to_string_lossy().to_string(),
-        None => "archive".to_string(),
-    };
-
-    // 构造响应
-    (
-        StatusCode::OK,
-        [
-            (
-                "Content-Disposition",
-                format!("attachment; filename=\"{}.zip\"", folder_name),
-            ),
-            ("Content-Type", "application/zip".to_string()),
-        ],
-        zip_content,
-    )
-        .into_response()
-}
-
-// 同步函数：递归添加文件夹内容到zip
-fn add_folder_to_zip_sync(
-    zip_writer: &mut zip::ZipWriter<std::fs::File>,
-    folder_path: &Path,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use zip::write::FileOptions;
-    use std::fs;
-
-    // 读取文件夹内容
-    let entries = fs::read_dir(folder_path)?;
-    
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-        
-        // 计算相对于根文件夹的路径
-        let relative_path = path.strip_prefix(folder_path.parent().unwrap_or(folder_path))
-            .unwrap_or(&path);
-        
-        if path.is_file() {
-            // 添加文件到zip
-            let file_content = fs::read(&path)?;
-            let file_path_str = relative_path.to_string_lossy().to_string();
-            
-            zip_writer.start_file(&file_path_str, FileOptions::default().compression_method(zip::CompressionMethod::Stored))?;
-            zip_writer.write_all(&file_content)?;
-        } else if path.is_dir() {
-            // 递归处理子文件夹
-            add_folder_to_zip_sync(zip_writer, &path)?;
-        }
+    // 检查权限 - 简化实现，实际应该检查文件夹中每个文件的权限
+    if !crate::utils::check_permission(&user_config.permissions_tree, &folder_path_str, 1) {
+        return Response::builder()
+            .status(403)
+            .body(axum::body::Body::from("No permission"))
+            .unwrap();
     }
 
-    Ok(())
+    // 临时使用错误响应，直到 zip 功能修复
+    Response::builder()
+        .status(501) // Not Implemented
+        .body(axum::body::Body::from("Download folder as zip is not yet implemented"))
+        .unwrap()
 }

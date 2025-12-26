@@ -1,11 +1,14 @@
-use crate::model::{AppState, UserConfig};
 use axum::{
-    Json, 
-    extract::FromRequestParts,
-    http::{StatusCode, header, request::Parts},
-    response::{IntoResponse, Redirect, Response},
+    extract::{FromRequestParts},
+    http::{self, header, StatusCode},
+    response::{IntoResponse, Response},
+    Json,
 };
 use serde_json::json;
+
+use crate::{
+    model::{app_state::AppState, UserConfig},
+};
 
 /// 自动从请求中提取并验证用户信息的Extractor
 ///
@@ -33,20 +36,19 @@ impl IntoResponse for AuthError {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for AuthUser
 where
-    S: Send + Sync + AsRef<AppState>,
+    S: Send + Sync,
 {
     type Rejection = AuthError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let app_state = state.as_ref();
-        // return Ok(AuthUser(app_state.get_user_config("admin").unwrap().clone()));
+    async fn from_request_parts(parts: &mut http::request::Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let app_state = parts.extensions.get::<AppState>().ok_or(AuthError)?;
+
         // 从header中获取token
         let token = parts
             .headers
-            .get("Authorization")
+            .get(header::AUTHORIZATION)
             .and_then(|h| h.to_str().ok())
             .and_then(|s| s.strip_prefix("Bearer "))
             .or_else(|| parts.headers.get("x-token").and_then(|h| h.to_str().ok()))
@@ -75,20 +77,19 @@ where
 /// 使用简单的方式提取用户名（不验证权限）
 pub struct Username(pub String);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Username
 where
-    S: Send + Sync + AsRef<AppState>,
+    S: Send + Sync,
 {
     type Rejection = AuthError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let app_state = state.as_ref();
+    async fn from_request_parts(parts: &mut http::request::Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let app_state = parts.extensions.get::<AppState>().ok_or(AuthError)?;
 
         // 从header中获取token
         let token = parts
             .headers
-            .get("Authorization")
+            .get(header::AUTHORIZATION)
             .and_then(|h| h.to_str().ok())
             .and_then(|s| s.strip_prefix("Bearer "))
             .or_else(|| parts.headers.get("x-token").and_then(|h| h.to_str().ok()))

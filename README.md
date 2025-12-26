@@ -9,6 +9,7 @@
 - ✅ 文件上传（支持权限控制）
 - ✅ 文件下载（支持权限控制）
 - ✅ 灵活的权限配置系统
+- ✅ HTTPS 支持
 
 ## 配置文件
 
@@ -41,6 +42,29 @@ permissions = ["folder2/*", "shared.pdf"]
 - `["file1.txt"]` - 精确文件名，只能访问该文件
 - `["folder1/*"]` - 通配符，可以访问 `folder1` 文件夹内的所有文件
 
+## 启用 HTTPS
+
+要启用 HTTPS 支持，需要准备 TLS 证书和私钥文件：
+
+1. 在项目根目录下创建 `certs` 文件夹：
+   ```bash
+   mkdir certs
+   ```
+
+2. 生成自签名证书（仅用于测试）：
+   ```bash
+   # 安装 mkcert（如果尚未安装）
+   # macOS: brew install mkcert
+   # Windows: choco install mkcert
+   # Linux: sudo apt install libnss3-tools && curl -JLO "https://github.com/FiloSottile/mkcert/releases/download/v1.4.3/mkcert-v1.4.3-linux-amd64" && chmod +x mkcert-v1.4.3-linux-amd64 && sudo mv mkcert-v1.4.3-linux-amd64 /usr/local/bin/mkcert
+
+   # 生成证书
+   mkcert -install
+   mkcert -key-file certs/key.pem -cert-file certs/cert.pem localhost 127.0.0.1 ::1
+   ```
+
+3. 启动服务器后，它将自动检测证书文件并同时运行 HTTP 和 HTTPS 服务
+
 ## 使用方法
 
 ### 启动服务器
@@ -49,11 +73,13 @@ permissions = ["folder2/*", "shared.pdf"]
 cargo run
 ```
 
-服务器将在 `http://127.0.0.1:8080` 启动
+服务器将在 `http://127.0.0.1:8080` 和 `https://127.0.0.1:8443` 启动
+
+> 注意：如果项目根目录的 `certs` 文件夹中存在 `cert.pem` 和 `key.pem`，HTTPS 服务将自动启用。
 
 ### 前端使用
 
-1. 打开浏览器访问 `http://127.0.0.1:8080`
+1. 打开浏览器访问 `http://127.0.0.1:8080` 或 `https://127.0.0.1:8443`（如果启用了 HTTPS）
 2. 在登录框中输入用户名和密码
 3. 登录成功后，可以看到该用户有权限访问的文件列表
 4. 支持上传和下载操作
@@ -79,6 +105,9 @@ simple_file_manager/
 ├── static/
 │   └── index.html        # 前端页面
 ├── files/                # 文件存储目录
+├── certs/                # HTTPS 证书目录（可选）
+│   ├── cert.pem          # 证书文件
+│   └── key.pem           # 私钥文件
 ├── config.toml           # 用户和权限配置（TOML格式）
 ├── Cargo.toml            # 依赖配置
 └── README.md             # 本文件
@@ -90,6 +119,7 @@ simple_file_manager/
 - **异步运行时**: Tokio
 - **序列化**: Serde + serde_json
 - **前端**: 原生HTML + JavaScript
+- **HTTPS 支持**: rustls + axum-server
 
 ## API 文档
 
@@ -138,16 +168,3 @@ simple_file_manager/
 ## 权限检查机制
 
 - 所有API操作都需要有效的token认证
-- 文件浏览、上传、下载操作都受权限控制
-- 权限不足时返回 `403 Forbidden`
-- 用户只能访问config.json中定义的权限范围内的文件
-
-## 修改配置
-
-修改 `config.toml` 后，需要重启服务器使新配置生效。
-
-## 安全建议
-
-- 在生产环境中，请不要使用简单的明文密码存储，建议使用加密或哈希处理
-- 建议为每个用户配置最小必要权限
-- 定期更新依赖包以获得安全更新

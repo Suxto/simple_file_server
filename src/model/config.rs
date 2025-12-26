@@ -24,6 +24,7 @@ mod file_configs {
     pub struct ConfigFromFile {
         pub users: Vec<UserFromFile>,
         pub paths: Vec<PathFromFile>,
+        pub misc: Option<MiscFromFile>,
     }
 
     impl ConfigFromFile {
@@ -41,6 +42,13 @@ mod file_configs {
                     .collect(),
             }
         }
+    }
+
+    #[derive(Clone, Deserialize, Serialize)]
+    pub struct MiscFromFile {
+        pub port: Option<u16>,
+        pub host: Option<String>,
+        
     }
 
     #[derive(Clone, Deserialize, Serialize)]
