@@ -1,8 +1,10 @@
+use std::os::windows::fs::MetadataExt;
+
 use crate::{extractors::AuthUser, model::AppState};
 use axum::{
     Json,
-    extract::{Query, State, path},
-    http::{HeaderMap, StatusCode},
+    extract::{Query, State},
+    http::StatusCode,
     response::IntoResponse,
 };
 use serde::{Deserialize, Serialize};
@@ -21,6 +23,7 @@ pub struct File {
     pub name: String,
     pub is_dir: bool,
     pub permissions: u8,
+    pub size: u64,
 }
 
 #[derive(Serialize)]
@@ -48,6 +51,7 @@ pub async fn list_files(
                         name: f.name.clone(),
                         is_dir: true,
                         permissions: DEFAULT_PERMISSIONS,
+                        size: 0,
                     })
                     .collect(),
             }),
@@ -66,10 +70,12 @@ pub async fn list_files(
             .filter_map(|entry| entry.ok())
             .map(|entry| {
                 let metadata = entry.metadata().ok()?;
+                let is_dir = metadata.is_dir();
                 Some(File {
                     name: entry.file_name().to_string_lossy().to_string(),
-                    is_dir: metadata.is_dir(),
+                    is_dir: is_dir,
                     permissions: DEFAULT_PERMISSIONS,
+                    size: if is_dir { 0 } else { metadata.file_size() },
                 })
             })
             .filter_map(|f| f)

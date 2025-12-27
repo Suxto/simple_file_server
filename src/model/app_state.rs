@@ -1,4 +1,4 @@
-use crate::model::{Config, ConfigFromFile, Path, UserConfig, app_state};
+use crate::model::{Config, ConfigFromFile, Path, UserConfig};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -18,8 +18,8 @@ impl AsRef<AppState> for AppState {
 }
 
 impl AppState {
-    pub async fn new_form_config(config_from_file: Arc<ConfigFromFile>) -> Self {
-        let config = Config::from_config_file(config_from_file.as_ref())
+    pub async fn new_form_config(config_from_file: &ConfigFromFile) -> Self {
+        let config = Config::from_config_file(config_from_file)
             .await
             .unwrap();
 

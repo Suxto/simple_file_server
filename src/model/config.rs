@@ -59,10 +59,11 @@ mod file_configs {
         pub enable_https: Option<bool>,
         pub cert_path: Option<String>,
         pub log_level: Option<String>,
+        pub max_upload_size: Option<usize>,
     }
 
     #[derive(Clone, Deserialize, Serialize)]
-    pub struct DebugSession{
+    pub struct DebugSession {
         pub username: String,
         pub token: String,
     }

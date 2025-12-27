@@ -2,6 +2,8 @@
 debug = true
 log_level = "debug"
 port = 8080
+host = "0.0.0.0"
+max_upload_size = 5368709120
 
 [debug]
 enable = true
@@ -10,14 +12,19 @@ username = "admin"
 token = "admin"
 
 [[paths]]
-name = "root"
+name = "C"
 path = "/" # 允许访问的路径，例子 / 表示/下面的所有路径或文件，或者使用集合 /?usr|bin? 将允许访问这些文件或者下面的路径
 permission = 0b111 # rwv- read, write, view
+
+[[paths]]
+name = "User"
+path = "/Users/suxto/"
+permission = 0b111
 
 # 文件管理器用户权限配置
 [[users]]
 username = "admin"
-password = "password"
+password = "1"
 [[users.permissions]]
 path_name = "root" 
 permission = 0b111

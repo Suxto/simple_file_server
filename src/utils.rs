@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::model::file::Path;
 
 pub fn check_permission(
@@ -7,7 +5,10 @@ pub fn check_permission(
     requested_path: &str,
     required_permission: u8,
 ) -> bool {
-    let path_parts: Vec<&str> = requested_path.split('/').filter(|s| !s.is_empty()).collect();
+    let path_parts: Vec<&str> = requested_path
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .collect();
     check_permission_recursive(user_permissions_tree, &path_parts, required_permission)
 }
 

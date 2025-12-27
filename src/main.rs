@@ -27,22 +27,26 @@ async fn main() {
         }
     };
 
-    let state = model::AppState::new_form_config(config).await;
-    let app = router::create_router(state);
+    let state = model::AppState::new_form_config(config.as_ref()).await;
+    let app = router::create_router(state, config.as_ref());
 
-    // 从命令行参数或环境变量获取端口配置
-    let https_port: u16 = std::env::var("HTTPS_PORT")
-        .unwrap_or_else(|_| "8443".to_string())
-        .parse()
-        .expect("HTTPS 端口必须是数字");
+    let http_port = config
+        .as_ref()
+        .misc
+        .as_ref()
+        .map(|e| e.port.clone())
+        .unwrap()
+        .unwrap();
 
-    let http_port: u16 = std::env::var("HTTP_PORT")
-        .unwrap_or_else(|_| "8080".to_string())
-        .parse()
-        .expect("HTTP 端口必须是数字");
+    let host = config
+        .as_ref()
+        .misc
+        .as_ref()
+        .map(|e| e.host.clone())
+        .unwrap()
+        .unwrap();
 
-    let https_addr = SocketAddr::from(([127, 0, 0, 1], https_port));
-    let http_addr = SocketAddr::from(([127, 0, 0, 1], http_port));
+    let http_addr = SocketAddr::new(host.parse().unwrap(), http_port);
 
     // 检查是否有证书文件，如果有则启动 HTTPS 服务器
     if std::path::Path::new("certs/cert.pem").exists()

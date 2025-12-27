@@ -92,10 +92,48 @@
             color: #6c757d;
             padding: 40px;
         }
+        
+        /* 上传进度条样式 */
+        .upload-progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+            display: none;
+        }
+
+        .upload-progress-bar {
+            width: 0%;
+            height: 5px;
+            background-color: #28a745;
+            transition: width 0.3s;
+        }
+
+        .upload-progress-text {
+            position: fixed;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #28a745;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 10000;
+            min-width: 200px;
+            text-align: center;
+        }
     </style>
 </head>
 
 <body>
+    <!-- 上传进度条 -->
+    <div class="upload-progress-container" id="uploadProgressContainer">
+        <div class="upload-progress-bar" id="uploadProgressBar"></div>
+        <div class="upload-progress-text" id="uploadProgressText">上传进度: 0%</div>
+    </div>
+
     <div class="container">
         <div class="row">
             <div class="col-12">
@@ -146,6 +184,11 @@
         const urlParams = new URLSearchParams(window.location.search);
         let currentRoot = urlParams.get('root') || '';
         let currentPath = urlParams.get('path') || '';
+
+        // 用于跟踪上传进度的变量
+        let uploadStartTime = 0;
+        let uploadTotal = 0;
+        let uploadLoaded = 0;
 
         // 初始化页面
         $(document).ready(function () {
@@ -232,7 +275,7 @@
         function createFileCard(file) {
             const isDirectory = file.is_dir; // 使用is_dir而不是type
             const iconClass = isDirectory ? 'bi-folder' : getFileIcon(file.name);
-            const size = isDirectory ? '(文件夹)' : '(文件)';
+            const size = isDirectory ? '(文件夹)' : `(文件-${formatFileSize(file.size)})`;
 
             let root = '';
             let path = '';
@@ -304,9 +347,35 @@
         // 下载文件
         function downloadFile(name) {
             const filePath = currentPath + name;
-            const url = `/api/download?root=${currentRoot}&path=${encodeURIComponent(filePath)}`;
+            const url = `/api/download?root=${currentRoot}&path=${encodeURIComponent(filePath)}&token=${token}`;
 
-            // 使用fetch API下载文件，这样可以正确传递认证头
+            // 创建一个隐藏的iframe来处理下载，这样浏览器会显示下载进度
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = url;
+            iframe.id = 'download-iframe';
+
+            // 监听错误
+            iframe.onload = function () {
+                // 尝试获取iframe内容（如果失败会抛出错误）
+                try {
+                    const content = iframe.contentDocument || iframe.contentWindow.document;
+                    if (content && content.title && content.title.includes('401')) {
+                        handleAuthError();
+                    }
+                } catch (e) {
+                    // 捕获跨域错误等
+                    // 我们不能直接检查响应状态，所以依赖fetch方法
+                }
+            };
+
+            iframe.onerror = function () {
+                handleAuthError();
+            };
+
+            document.body.appendChild(iframe);
+
+            // 替代方案：使用fetch来检查认证状态
             fetch(url, {
                 method: 'GET',
                 headers: {
@@ -318,35 +387,10 @@
                         handleAuthError();
                     } else if (!response.ok) {
                         console.error('下载失败:', response.status);
-                        alert('下载失败: ' + response.statusText);
-                    } else {
-                        // 将响应转换为blob
-                        return response.blob();
-                    }
-                })
-                .then(blob => {
-                    if (blob) {
-                        // 创建一个临时的URL来下载blob
-                        const blobUrl = URL.createObjectURL(blob);
-
-                        // 创建一个临时的下载链接
-                        const link = document.createElement('a');
-                        link.href = blobUrl;
-                        link.download = name; // 设置下载的文件名
-                        link.style.display = 'none';
-
-                        // 添加到页面，点击下载，然后移除
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-
-                        // 释放blob URL
-                        URL.revokeObjectURL(blobUrl);
                     }
                 })
                 .catch(error => {
                     console.error('下载请求错误:', error);
-                    alert('下载过程中出现错误，请重试');
                 });
         }
 
@@ -428,6 +472,9 @@
             formData.append('path', currentPath);
             formData.append('file', file);
 
+            // 显示上传进度条
+            showUploadProgress();
+
             $.ajax({
                 url: '/api/upload',
                 method: 'POST',
@@ -439,18 +486,42 @@
                 },
                 xhr: function () {
                     const xhr = new window.XMLHttpRequest();
+                    
                     // 上传进度
                     xhr.upload.addEventListener("progress", function (evt) {
                         if (evt.lengthComputable) {
+                            uploadTotal = evt.total;
+                            uploadLoaded = evt.loaded;
+                            
+                            // 计算上传速度
+                            const currentTime = new Date().getTime();
+                            const timeElapsed = (currentTime - uploadStartTime) / 1000; // 秒
+                            
+                            // 更新进度条
                             const percentComplete = evt.loaded / evt.total * 100;
-                            console.log('上传进度: ' + Math.round(percentComplete) + '%');
+                            updateUploadProgress(percentComplete, evt.loaded, evt.total);
+                            
+                            // 计算上传速度（如果时间大于0.5秒，避免频繁更新）
+                            if (timeElapsed > 0.5) {
+                                const speed = evt.loaded / timeElapsed; // bytes per second
+                                updateUploadSpeed(speed);
+                            }
                         }
                     }, false);
+                    
+                    // 记录开始时间
+                    xhr.upload.addEventListener("loadstart", function() {
+                        uploadStartTime = new Date().getTime();
+                        uploadTotal = 0;
+                        uploadLoaded = 0;
+                    }, false);
+                    
                     return xhr;
                 },
                 success: function (response) {
                     console.log('文件上传成功:', file.name);
-                    loadFiles(currentPath); // 重新加载文件列表
+                    hideUploadProgress();
+                    loadFiles();
                 },
                 error: function (xhr, status, error) {
                     if (xhr.status === 401) {
@@ -461,9 +532,53 @@
                         return;
                     }
                     console.error('文件上传失败:', error);
+                    hideUploadProgress();
                     alert('文件上传失败: ' + (xhr.responseJSON?.message || '未知错误'));
                 }
             });
+        }
+
+        // 显示上传进度条
+        function showUploadProgress() {
+            document.getElementById('uploadProgressContainer').style.display = 'block';
+            updateUploadProgress(0, 0, 0);
+        }
+
+        // 更新上传进度
+        function updateUploadProgress(percent, loaded, total) {
+            const progressBar = document.getElementById('uploadProgressBar');
+            const progressText = document.getElementById('uploadProgressText');
+            
+            // 更新进度条宽度
+            progressBar.style.width = percent + '%';
+            
+            // 更新进度文本
+            const loadedMB = (loaded / (1024 * 1024)).toFixed(2);
+            const totalMB = (total / (1024 * 1024)).toFixed(2);
+            progressText.textContent = `上传进度: ${Math.round(percent)}% (${loadedMB}MB / ${totalMB}MB)`;
+        }
+
+        // 更新上传速度
+        function updateUploadSpeed(bytesPerSecond) {
+            const progressText = document.getElementById('uploadProgressText');
+            const speedKB = (bytesPerSecond / 1024).toFixed(2);
+            const speedMB = (bytesPerSecond / (1024 * 1024)).toFixed(2);
+            
+            // 获取当前进度信息
+            const percent = (uploadLoaded / uploadTotal) * 100;
+            const loadedMB = (uploadLoaded / (1024 * 1024)).toFixed(2);
+            const totalMB = (uploadTotal / (1024 * 1024)).toFixed(2);
+            
+            if (bytesPerSecond >= 1024 * 1024) {
+                progressText.textContent = `上传进度: ${Math.round(percent)}% (${loadedMB}MB / ${totalMB}MB) - 速度: ${speedMB} MB/s`;
+            } else {
+                progressText.textContent = `上传进度: ${Math.round(percent)}% (${loadedMB}MB / ${totalMB}MB) - 速度: ${speedKB} KB/s`;
+            }
+        }
+
+        // 隐藏上传进度条
+        function hideUploadProgress() {
+            document.getElementById('uploadProgressContainer').style.display = 'none';
         }
 
         // 全局函数供HTML使用
