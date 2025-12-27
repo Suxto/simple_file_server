@@ -1,4 +1,4 @@
-use crate::model::{Config, Path, UserConfig};
+use crate::model::{Config, ConfigFromFile, Path, UserConfig, app_state};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
@@ -18,27 +18,43 @@ impl AsRef<AppState> for AppState {
 }
 
 impl AppState {
-    pub fn new_form_config(config: Arc<Config>) -> Self {
-        AppState {
-            path: Arc::new(config.paths.clone()),
-            user_config: Arc::new(config.users.clone()),
+    pub async fn new_form_config(config_from_file: Arc<ConfigFromFile>) -> Self {
+        let config = Config::from_config_file(config_from_file.as_ref())
+            .await
+            .unwrap();
+
+        let app_state  = AppState {
+            path: Arc::new(config.paths),
+            user_config: Arc::new(config.users),
             user_sessions: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+        };
+
+        if let Some(debug) = &config_from_file.debug
+            && debug.enable
+        {
+            if let Some(debug_session) = &debug.debug_session
+            {
+                let username = debug_session.username.clone();
+                let session = debug_session.token.clone();
+                app_state.add_session(session, username).await;
+            }
         }
+        app_state
     }
 
     pub fn get_user_config(&self, username: &str) -> Option<&UserConfig> {
         self.user_config.get(username)
     }
 
-    pub async fn get_user_by_session(&self, session_token: &str) -> Option<&UserConfig> {
-        self.user_sessions
-            .lock()
-            .await
-            .get(session_token)
-            .and_then(|username| self.get_user_config(username))
+    pub async fn get_user_by_token(&self, session_token: &str) -> Option<&UserConfig> {
+        self.get_user_config(self.get_username_by_session(session_token).await?.as_str())
     }
 
-    pub async fn add_session(&self, session_token: String, username: String) {
+    pub async fn get_username_by_session(&self, session_token: &str) -> Option<String> {
+        self.user_sessions.lock().await.get(session_token).cloned()
+    }
+
+    pub async fn add_session(& self, session_token: String, username: String) {
         self.user_sessions
             .lock()
             .await

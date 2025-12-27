@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::Path;
+pub use crate::model::{Path, config::file_configs::ConfigFromFile};
 
 #[derive(Clone)]
 pub struct UserConfig {
@@ -17,7 +17,6 @@ pub struct Config {
     pub paths: BTreeMap<String, Path>,
 }
 
-
 mod file_configs {
     pub use super::*;
     #[derive(Clone, Deserialize, Serialize)]
@@ -25,22 +24,31 @@ mod file_configs {
         pub users: Vec<UserFromFile>,
         pub paths: Vec<PathFromFile>,
         pub misc: Option<MiscFromFile>,
+        pub debug: Option<DebugFromFile>,
     }
 
     impl ConfigFromFile {
-        pub fn to_config(self) -> Config {
+        pub fn to_config(&self) -> Config {
             Config {
                 users: self
                     .users
+                    .clone()
                     .into_iter()
                     .map(|u| (u.username.clone(), u.to_user_config()))
                     .collect(),
                 paths: self
                     .paths
+                    .clone()
                     .into_iter()
                     .map(|p| (p.name.clone(), p.to_path_config()))
                     .collect(),
             }
+        }
+
+        pub async fn from_toml(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+            let config_str = tokio::fs::read_to_string(path).await?;
+            let config_from_file: Self = toml::from_str(&config_str)?;
+            Ok(config_from_file)
         }
     }
 
@@ -48,7 +56,21 @@ mod file_configs {
     pub struct MiscFromFile {
         pub port: Option<u16>,
         pub host: Option<String>,
-        
+        pub enable_https: Option<bool>,
+        pub cert_path: Option<String>,
+        pub log_level: Option<String>,
+    }
+
+    #[derive(Clone, Deserialize, Serialize)]
+    pub struct DebugSession{
+        pub username: String,
+        pub token: String,
+    }
+
+    #[derive(Clone, Deserialize, Serialize)]
+    pub struct DebugFromFile {
+        pub enable: bool,
+        pub debug_session: Option<DebugSession>,
     }
 
     #[derive(Clone, Deserialize, Serialize)]
@@ -100,9 +122,9 @@ mod file_configs {
 }
 
 impl Config {
-    pub async fn from_toml(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
-        let config_str = tokio::fs::read_to_string(path).await?;
-        let config_from_file: file_configs::ConfigFromFile = toml::from_str(&config_str)?;
+    pub async fn from_config_file(
+        config_from_file: &ConfigFromFile,
+    ) -> Result<Config, Box<dyn std::error::Error>> {
         let mut config = config_from_file.to_config();
 
         config

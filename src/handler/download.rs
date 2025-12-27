@@ -1,137 +1,73 @@
+use crate::{extractors::AuthUser, handler::list::FileRequest, model::AppState};
 use axum::{
-    extract::{Path, Query, State},
-    http::header,
-    response::Response,
+    extract::Query,
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse, Response},
 };
-use serde::Deserialize;
-use std::path::Path as StdPath;
+use std::path::Path;
+use tokio::fs;
+use tracing::{error, info};
 
-use crate::{extractors::AuthUser, model::AppState};
-
-#[derive(Deserialize)]
-pub struct DownloadQuery {
-    name: String,
-    token: String,
-}
-
-pub async fn download_file(
+pub async fn download(
     State(state): State<AppState>,
-    Query(query): Query<DownloadQuery>,
+    Query(params): Query<FileRequest>,
+    AuthUser(user): AuthUser,
 ) -> Response {
-    // 验证token
-    let username = {
-        let sessions = state.user_sessions.lock().await;
-        if let Some(username) = sessions.get(&query.token).cloned() {
-            username
-        } else {
-            return Response::builder()
-                .status(401)
-                .body(axum::body::Body::from("Invalid token"))
-                .unwrap();
-        }
-    };
+    let root = params.root.unwrap_or("".to_string());
+    let path = params.path.unwrap_or("".to_string());
+    info!("用户 '{}' 请求下载: {}/{}", &user.username, &root, &path);
 
-    // 检查用户权限
-    let user_config = {
-        if let Some(config) = state.user_config.get(&username) {
-            config.clone()
-        } else {
-            return Response::builder()
-                .status(401)
-                .body(axum::body::Body::from("User not found"))
-                .unwrap();
-        }
-    };
+    let full_path = state.path.get(&root).map(|p| format!("{}{}", p.path, path));
 
-    let file_path = StdPath::new("files").join(&query.name);
-
-    // 检查权限
-    if !crate::utils::check_permission(&user_config.permissions_tree, &query.name, 1) {
-        return Response::builder()
-            .status(403)
-            .body(axum::body::Body::from("No permission"))
-            .unwrap();
+    if full_path.is_none() {
+        return (StatusCode::NOT_FOUND, "路径不存在".to_string()).into_response();
     }
+
+    // 从查询参数中获取路径
+    let path_str = full_path.unwrap();
+    info!("用户 '{}' 下载文件: {}", &user.username, &path_str);
+    let file_path = Path::new(&path_str);
 
     // 检查文件是否存在
     if !file_path.exists() {
-        return Response::builder()
-            .status(404)
-            .body(axum::body::Body::from("File not found"))
-            .unwrap();
+        return (StatusCode::NOT_FOUND, "文件不存在").into_response();
     }
 
-    // 返回文件
-    if let Ok(file) = tokio::fs::read(&file_path).await {
-        use mime_guess::from_path;
-        let mime = from_path(&file_path).first_or_octet_stream();
-
-        Response::builder()
-            .status(200)
-            .header(header::CONTENT_TYPE, mime.as_ref())
-            .header(
-                header::CONTENT_DISPOSITION,
-                format!("attachment; filename=\"{}\"", query.name),
-            )
-            .body(axum::body::Body::from(file))
-            .unwrap()
-    } else {
-        Response::builder()
-            .status(500)
-            .body(axum::body::Body::from("Read file error"))
-            .unwrap()
+    // 检查是否为文件夹
+    if file_path.is_dir() {
+        return (StatusCode::NOT_IMPLEMENTED, "不支持文件夹下载").into_response();
     }
-}
 
-pub async fn download_folder_as_zip(
-    Path(folder_path_str): Path<String>,
-    State(state): State<AppState>,
-    AuthUser(_user): AuthUser,
-) -> Response {
-    // 验证用户对整个文件夹的访问权限
-    let user_sessions = state.user_sessions.lock().await;
-    let token = "temp_token"; // 实际实现中，需要从请求头获取token
-    let username = match user_sessions.get(token).cloned() {
-        Some(name) => name,
-        None => {
-            return Response::builder()
-                .status(401)
-                .body(axum::body::Body::from("Invalid token"))
-                .unwrap();
+    let file_content = match fs::read(&file_path).await {
+        Ok(content) => content,
+        Err(e) => {
+            error!("读取文件失败: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "读取文件失败").into_response();
         }
     };
 
-    let user_config = match state.user_config.get(&username) {
-        Some(config) => config,
-        None => {
-            return Response::builder()
-                .status(401)
-                .body(axum::body::Body::from("User not found"))
-                .unwrap();
-        }
+    let file_name = match file_path.file_name() {
+        Some(name) => name.to_string_lossy().to_string(),
+        None => return (StatusCode::INTERNAL_SERVER_ERROR, "无效的文件名").into_response(),
     };
 
-    let folder_path = StdPath::new("files").join(&folder_path_str);
-
-    // 检查文件夹是否存在
-    if !folder_path.exists() || !folder_path.is_dir() {
-        return Response::builder()
-            .status(404)
-            .body(axum::body::Body::from("Folder not found"))
-            .unwrap();
-    }
-
-    // 检查权限 - 简化实现，实际应该检查文件夹中每个文件的权限
-    if !crate::utils::check_permission(&user_config.permissions_tree, &folder_path_str, 1) {
-        return Response::builder()
-            .status(403)
-            .body(axum::body::Body::from("No permission"))
-            .unwrap();
-    }
-
-    // 临时使用错误响应，直到 zip 功能修复
-    Response::builder()
-        .status(501) // Not Implemented
-        .body(axum::body::Body::from("Download folder as zip is not yet implemented"))
-        .unwrap()
+    // 构造响应
+    (
+        StatusCode::OK,
+        [
+            (
+                "Content-Disposition",
+                format!("attachment; filename=\"{}\"", file_name),
+            ),
+            (
+                "Content-Type",
+                mime_guess::from_path(&file_path)
+                    .first_or_octet_stream()
+                    .to_string(),
+            ),
+        ],
+        file_content,
+    )
+        .into_response()
 }

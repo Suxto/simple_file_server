@@ -1,8 +1,13 @@
 [misc]
 debug = true
-debug_session = "admin"
 log_level = "debug"
 port = 8080
+
+[debug]
+enable = true
+[debug.debug_session]
+username = "admin"
+token = "admin"
 
 [[paths]]
 name = "root"
